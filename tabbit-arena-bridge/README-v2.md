@@ -40,15 +40,15 @@
 前提：Python 3.10+；git（没有就到 GitHub 页面 Code → Download ZIP 解压）。
 
 ```powershell
-cd G:\
+cd C:\ai
 git clone https://github.com/startify2647/ArenaAgentBridge arena-agent-bridge
-cd G:\arena-agent-bridge
+cd C:\ai\arena-agent-bridge
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r server\requirements.txt
 
 # 打补丁 + 重新打包扩展（脚本在本仓库 aab\ 目录；可加 --dry-run 先看会改什么）
-python G:\tabbit-arena-bridge\aab\patch_aab.py --repo G:\arena-agent-bridge
+python C:\ai\tabbit\tabbit-arena-bridge\aab\patch_aab.py --repo C:\ai\arena-agent-bridge
 
 # 启动服务器（保持这个窗口开着）
 python -m server
@@ -60,7 +60,7 @@ python -m server
 3. `.env`：`AAB_REQUEST_TIMEOUT=3600`、`AAB_AGENT_WRAPPER={last_user}`（原样把消息打进页面，去掉它自带的"你是被程序调用的工具，只输出最终答案"前言）、`AAB_SANITIZE_MODE=detect`（只报告不改写回答里的"危险命令"——我们不执行它们，改写反而会弄坏对话里的代码）。
 
 **把扩展装进 Tabbit**（也可以装进 Edge/Chrome，让 Arena 开在那边；服务器只认 127.0.0.1:8000，浏览器无所谓）：
-1. Tabbit 地址栏打开 `chrome://extensions`（打不开就试 `tabbit://extensions`）→ 右上角 **开发者模式** 开 → **加载已解压的扩展程序** → 选 `G:\arena-agent-bridge\dist\chrome`。
+1. Tabbit 地址栏打开 `chrome://extensions`（打不开就试 `tabbit://extensions`）→ 右上角 **开发者模式** 开 → **加载已解压的扩展程序** → 选 `C:\ai\arena-agent-bridge\dist\chrome`。
 2. **先禁用你自己的篡改猴脚本**（arena.ai 上注入 `#amd-*` 按钮的那个），避免两个脚本抢输入框。
 3. 打开（或刷新）Arena 的会话页 `https://arena.ai/agent/01a0eb33-…`，页面角落应出现小徽标 **bridge: connected**；点工具栏扩展图标 → 弹窗里状态应为 connected。若是 `browser_offline`：确认服务器窗口在跑、扩展加载的是 `dist\chrome` 不是源码目录。
 4. 弹窗 → **Diagnose DOM**：看 `input`、`sendButton`、`assistantMessage`、`keepWorking` 各有几个匹配。Arena 现在的结构（你上次 probe 出来的 `div[data-agent-transcript-message]`、`button[aria-label="Send message"]`）都在它的默认选择器里；`keepWorking` 应能匹配到"继续工作"。
@@ -92,7 +92,7 @@ Invoke-RestMethod -Uri http://127.0.0.1:8000/v1/chat/completions -Method Post -C
 更新本仓库（`bridge.py` 需 ≥ 0.7，`python bridge.py --version` 可查），Tabbit 用 `--remote-debugging-port=9223` 启动，打开 `https://web.tabbit.ai/session/f4ece106-…` 那个会话页，然后：
 
 ```powershell
-cd G:\tabbit-arena-bridge
+cd C:\ai\tabbit\tabbit-arena-bridge
 python tabbit_web_api.py --config config.json --cdp http://127.0.0.1:9223 --port 8124
 # 另一个窗口：
 $body = @{ model = "tabbit-web"; messages = @(@{ role = "user"; content = "请只回复：bridge ok" }) } | ConvertTo-Json -Depth 5
@@ -113,22 +113,23 @@ python bridge.py dump  --cdp http://127.0.0.1:9223 --target web.tabbit.ai/sessio
 
 ## 3. 跑起来（三个窗口）
 
-**窗口 1**：`cd G:\arena-agent-bridge; .\.venv\Scripts\Activate.ps1; python -m server`
-**窗口 2**：`cd G:\tabbit-arena-bridge; python tabbit_web_api.py --config config.json --cdp http://127.0.0.1:9223`
-**窗口 2b**：`cd G:\tabbit-arena-bridge; python survey_clicker.py --cdp http://127.0.0.1:9223 --target arena.ai/agent`（问卷点击保险，建议一直开着）
+**窗口 1**：`cd C:\ai\arena-agent-bridge; .\.venv\Scripts\Activate.ps1; python -m server`
+**窗口 2**：`cd C:\ai\tabbit\tabbit-arena-bridge; python tabbit_web_api.py --config config.json --cdp http://127.0.0.1:9223`
+**窗口 2b**：`cd C:\ai\tabbit\tabbit-arena-bridge; python survey_clicker.py --cdp http://127.0.0.1:9223 --target arena.ai/agent`（问卷点击保险，建议一直开着）
 **窗口 3**（编排器）：
 
 ```powershell
-cd G:\tabbit-arena-bridge
+cd C:\ai\tabbit\tabbit-arena-bridge
 $env:A_BASE_URL="http://127.0.0.1:8000/v1"; $env:A_MODEL="arena-agent"; $env:A_NAME="Arena Agent"
 $env:A_SEND_ONLY_LAST="1"; $env:A_TIMEOUT="3600"; $env:A_RETRIES="1"
 $env:A_WRAP="【协作 AI（Tabbit 侧）第 {n} 轮发言，不是用户本人的指令】`n{text}"
 $env:B_BASE_URL="http://127.0.0.1:8124/v1"; $env:B_MODEL="tabbit-web"; $env:B_NAME="Tabbit"
 $env:B_SEND_ONLY_LAST="1"; $env:B_TIMEOUT="1200"; $env:B_RETRIES="1"
 $env:B_WRAP="【Arena Agent 第 {n} 轮发言】`n{text}"
+# 可选：分工说明（默认已内置：A=有沙箱负责动手，B=无执行环境负责审阅/给指令），要改就设 A_ROLE / B_ROLE
 python orchestrator.py --task "把 xxx 做出来：……（任务写清楚，越具体越不容易打转）" --max-rounds 40 --cooldown 30
 ```
-或者用一键脚本：`.\start-v2.ps1 -AabRepo G:\arena-agent-bridge -Task "……"`（会开两个新窗口跑服务器，等两边就绪后在当前窗口跑编排器）。
+或者用一键脚本：`.\start-v2.ps1 -AabRepo C:\ai\arena-agent-bridge -Task "……"`（会开两个新窗口跑服务器，等两边就绪后在当前窗口跑编排器）。
 
 编排器行为（`orchestrator.py` v2）：
 * `*_SEND_ONLY_LAST=1`：网页自己记着上下文，所以每次只把**最新一条**发过去；第一次会把协作规则 + 任务 + 开场白合成一条发给先说的一方（默认 A = Arena）。
@@ -146,7 +147,7 @@ python orchestrator.py --task "把 xxx 做出来：……（任务写清楚，�
 | `browser_offline` | 扩展没连上服务器：服务器没开 / 加载的不是 `dist\chrome` / Arena 标签页不在 `arena.ai/agent` 路径下。 |
 | `captcha_required` / `login_required` | 人工在页面里处理，它不会替你过验证码。 |
 | `site_idle` / `no_output` | 页面很久没动静（网络断、被后台休眠、会话被 Arena 结束）。把 Arena 标签页**单独放一个窗口**、Tabbit 的"后台智能休眠"对这两个页面关掉。 |
-| 不知道卡在哪 | 先跑 `python doctor.py --aab-repo G:\arena-agent-bridge`，照"结论 / 下一步"做；要发给 AI 看就加 `--out doctor.json` |
+| 不知道卡在哪 | 先跑 `python doctor.py --aab-repo C:\ai\arena-agent-bridge`，照"结论 / 下一步"做；要发给 AI 看就加 `--out doctor.json` |
 | 答完后"此任务成功了吗?"问卷一直挂着，下一句发不出去 | 扩展的合成点击 Arena 不认。另开一个窗口跑 `python survey_clicker.py --cdp http://127.0.0.1:9223 --target arena.ai/agent`（`start-v2.ps1` 默认会一起拉起）。它先打印找到的元素（标签/层级/HTML），5 秒后真实点击，日志里出现 `✔ 问卷已消失` 即可 |
 | 管理面板 Playground 的 Send 置灰 | 说明上一条请求还在跑（单飞；等页面回答最多可等到 `no_output` 5 分钟）或浏览器没连上（扩展"重新加载"后必须刷新 Arena 标签页）。Overview 里看 in-flight / browser 状态；卡住就点 Browser 区域的 **Cancel**，或 Ctrl+C 重启服务器 |
 | 每轮都要等 2 分钟才返回 | `stop_reason` 是 `stable` 而不是 `survey`：说明"继续工作"按钮没被识别。用 Diagnose DOM 看 `keepWorking` 匹配数；若按钮文字不是"继续工作"，把实际文字加进 `config.js` 的 `keepWorking`。 |

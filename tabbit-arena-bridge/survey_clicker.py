@@ -43,6 +43,8 @@ try:
     sys.stdout.reconfigure(errors="replace")
 except Exception:
     pass
+import platform  # noqa: E402
+DONE = "[OK]" if platform.system() == "Windows" else "✔"
 
 # 找到"继续工作"这个可点元素：先找文字以它开头、且文字很短（叶子级）的可见元素，取最内层，再向上找可点击的祖先。
 # 找到的元素存到 window.__tabSurvey，后面的招式直接用。
@@ -304,7 +306,7 @@ def main():
                     tail = f"（输入框{'可见' if comp.get('input') else '不可见'}，发送按钮{'可见' if comp.get('send') else '不可见'}）"
                 except Exception:
                     tail = ""
-                say(f"✔ 问卷已消失（{how}）{tail}")
+                say(f"{DONE} 问卷已消失（{how}）{tail}")
                 solved += 1
                 if args.once and ladder and ladder.pos:
                     return 0

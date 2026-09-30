@@ -11,7 +11,7 @@ doctor.py — 一条命令说清楚"为什么发不出去 / 为什么 Send 是�
 最后给出"下一步该做什么"。
 
 用法：
-    python doctor.py                                   # 默认 :8000 / :9223 / G:\\arena-agent-bridge
+    python doctor.py                                   # 默认 :8000 / :9223 / 自动找 arena-agent-bridge（C:\\ai 下或本仓库旁边）
     python doctor.py --aab-repo D:\\path\\to\\arena-agent-bridge
     python doctor.py --fix                             # 顺手把此刻挂着的问卷点掉（同 survey_clicker 的阶梯）
     python doctor.py --cancel                          # 顺手把卡住的请求取消掉（等于面板 Browser 区域的 Cancel）
@@ -19,6 +19,7 @@ doctor.py — 一条命令说清楚"为什么发不出去 / 为什么 Send 是�
 """
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -29,11 +30,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import bridge  # noqa: E402
 import survey_clicker as sc  # noqa: E402
 
-VERSION = "0.1"
+VERSION = "0.2"
 try:
     sys.stdout.reconfigure(errors="replace")
 except Exception:
     pass
+import platform  # noqa: E402
+if platform.system() == "Windows":          # 中文 Windows 的控制台字体常没有这些符号
+    OK, BAD, WAIT, DONE = "[OK]", "[X]", "[..]", "[OK]"
+else:
+    OK, BAD, WAIT, DONE = "✓", "✗", "⏳", "✔"
+HERE = Path(__file__).resolve().parent
+
+
+def default_aab_repo() -> str:
+    """按顺序猜 ArenaAgentBridge 的位置：C:\\ai\\arena-agent-bridge → 本仓库上两级旁边 → 旧机的 G:\\ → 环境变量 AAB_REPO"""
+    cands = [os.environ.get("AAB_REPO", ""), r"C:\ai\arena-agent-bridge", str(HERE.parent.parent / "arena-agent-bridge"),
+             str(HERE.parent / "arena-agent-bridge"), r"G:\arena-agent-bridge"]
+    for c in cands:
+        if c and (Path(c) / "server").exists():
+            return c
+    return r"C:\ai\arena-agent-bridge"
 
 JS_PAGE = r"""
 (() => {
@@ -91,7 +108,7 @@ def main():
     ap.add_argument("--server", default="http://127.0.0.1:8000")
     ap.add_argument("--cdp", default=None)
     ap.add_argument("--target", default="arena.ai/agent")
-    ap.add_argument("--aab-repo", default=r"G:\arena-agent-bridge")
+    ap.add_argument("--aab-repo", default=default_aab_repo(), help="ArenaAgentBridge 目录（默认自动猜：C:\\ai\\arena-agent-bridge 等）")
     ap.add_argument("--fix", action="store_true", help="把此刻挂着的问卷点掉")
     ap.add_argument("--cancel", action="store_true", help="取消卡住的请求")
     ap.add_argument("--out", default=None)
@@ -113,12 +130,12 @@ def main():
     code, health = get(f"{args.server}/healthz")
     raw["healthz"] = health
     if code != 200:
-        print(f"✗ 连不上 {args.server}（{health}）")
+        print(f"{BAD} 连不上 {args.server}（{health}）")
         advice.append(("A", f"服务器没在跑。到 ArenaAgentBridge 目录：`.\\.venv\\Scripts\\Activate.ps1; python -m server`，"
                             f"看到 Uvicorn running on http://127.0.0.1:8000 再继续。"))
         status = None
     else:
-        print(f"✓ 服务器在跑：v{health.get('version')}，已运行 {health.get('uptime_s', 0) / 60:.0f} 分钟")
+        print(f"{OK} 服务器在跑：v{health.get('version')}，已运行 {health.get('uptime_s', 0) / 60:.0f} 分钟")
         code, status = get(f"{args.server}/v1/bridge/status")
         raw["status"] = status
         if code != 200 or not isinstance(status, dict):
@@ -132,12 +149,12 @@ def main():
         clients = br.get("clients", [])
         if connected:
             for c in clients:
-                print(f"✓ 浏览器扩展已连接：{c.get('client')} v{c.get('version')}  state={c.get('state')} busy={c.get('busy')} "
+                print(f"{OK} 浏览器扩展已连接：{c.get('client')} v{c.get('version')}  state={c.get('state')} busy={c.get('busy')} "
                       f"最近心跳 {c.get('last_seen_ago_s')}s 前\n    页面: {c.get('url')}")
                 if c.get("url") and "arena.ai/agent" not in str(c.get("url")):
                     advice.append(("B", f"扩展连的页面不是 arena.ai/agent（{c.get('url')}），请到正确的会话页刷新一次。"))
         else:
-            print("✗ 浏览器扩展没连上（Overview 会显示 no browser attached）")
+            print("{BAD} 浏览器扩展没连上（Overview 会显示 no browser attached）")
             advice.append(("A", "扩展没连上服务器：① Tabbit 里 chrome://extensions 确认扩展已启用、路径是 …\\dist\\chrome；"
                                 "② 扩展点过“重新加载”之后必须 **刷新 Arena 标签页**；③ 弹窗 Status 页签点 Reconnect。"))
         sv = status.get("server", {})
@@ -145,7 +162,7 @@ def main():
         print(f"  队列: pending={sv.get('pending_requests')} queue_depth={sv.get('queue_depth')}/{sv.get('queue_max')}")
         for p in pending:
             running = p.get("running_for_s")
-            print(f"  ⏳ 请求 {p.get('id')} mode={p.get('mode')} 排队 {p.get('queued_for_s')}s"
+            print(f"  {WAIT} 请求 {p.get('id')} mode={p.get('mode')} 排队 {p.get('queued_for_s')}s"
                   f"{'，页面里已跑 ' + str(running) + 's' if running is not None else '（还没发进页面）'}\n"
                   f"     内容: {str(p.get('preview') or p.get('prompt_preview') or '')[:80]!r}")
         if pending:
@@ -201,7 +218,7 @@ def main():
         targets = bridge.list_targets(cdp)
         arena = [x for x in targets if x.get("type") == "page" and args.target in ((x.get("url") or "") + " " + (x.get("title") or ""))]
         tabbit = [x for x in targets if x.get("type") == "page" and "web.tabbit.ai" in (x.get("url") or "")]
-        print(f"✓ 调试端口可用：{len(targets)} 个目标；含 '{args.target}' 的页 {len(arena)} 个，Tabbit 对话页 {len(tabbit)} 个")
+        print(f"{OK} 调试端口可用：{len(targets)} 个目标；含 '{args.target}' 的页 {len(arena)} 个，Tabbit 对话页 {len(tabbit)} 个")
         if len(arena) > 1:
             advice.append(("B", f"开了不止一个含 '{args.target}' 的标签页——扩展和 clicker 可能盯着不同的页，只留一个。"))
         if not arena:
@@ -225,7 +242,7 @@ def main():
             elif not page["input"]:
                 advice.append(("A", "既没有问卷也没有输入框——页面可能还在加载、在登录墙、或 Arena 改版了。刷新页面后再诊断一次。"))
     except SystemExit as e:
-        print(f"✗ {e}")
+        print(f"{BAD} {e}")
         advice.append(("A", f"连不上调试端口 {cdp}：Tabbit 必须用 --remote-debugging-port=9223 启动（完全退出后重开）。"))
 
     # ------------------------------------------------------------- 4. 补丁
@@ -252,11 +269,11 @@ def main():
               f"dist 的 config.js 含“继续工作”: {'是' if cfg_ok else '否'}   .env: {len(env_ok or [])}/3")
         raw["patch"] = {"src": sm, "dist": dm, "cfg": cfg_ok, "env": env_ok}
         if dm is None:
-            advice.append(("A", "dist\\chrome 不存在——还没打包。运行 `python G:\\tabbit-arena-bridge\\aab\\patch_aab.py --repo "
+            advice.append(("A", f"dist\\chrome 不存在——还没打包。运行 `python {HERE / 'aab' / 'patch_aab.py'} --repo "
                                 f"{repo}`，然后到 chrome://extensions 加载 {dist}。"))
         elif len(dm) < 3 or not cfg_ok:
             advice.append(("A", f"dist\\chrome 里的补丁不全（content.js {len(dm)}/3，config.js {'有' if cfg_ok else '无'}中文选择器）。"
-                                f"重跑 `python G:\\tabbit-arena-bridge\\aab\\patch_aab.py --repo {repo}` → chrome://extensions 点扩展的“重新加载” "
+                                f"重跑 `python {HERE / 'aab' / 'patch_aab.py'} --repo {repo}` → chrome://extensions 点扩展的“重新加载” "
                                 "→ 刷新 Arena 标签页 → 重启 python -m server。"))
         if status and connected:
             for c in status.get("browser", {}).get("clients", []):
@@ -282,13 +299,13 @@ def main():
                 info = sc.find(t, args.text, args.title)
                 if not info:
                     comp = t.eval(sc.JS_COMPOSER) or {}
-                    print(f"  ✔ 问卷已消失（第 {ladder.pos} 步后）（输入框{'可见' if comp.get('input') else '不可见'}，"
+                    print(f"  {DONE} 问卷已消失（第 {ladder.pos} 步后）（输入框{'可见' if comp.get('input') else '不可见'}，"
                           f"发送按钮{'可见' if comp.get('send') else '不可见'}）")
                     advice = [a for a in advice if "问卷正挂在页面上" not in a[1]]
                     break
                 ladder.info = info
             else:
-                print("  ✗ 所有招式都试过了问卷仍在——把上面“层级/卡片/HTML”几行发给 AI。")
+                print("  {BAD} 所有招式都试过了问卷仍在——把上面“层级/卡片/HTML”几行发给 AI。")
     if t is not None:
         try:
             t.close()

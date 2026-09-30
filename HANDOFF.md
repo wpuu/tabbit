@@ -113,7 +113,7 @@ tabbit-arena-bridge/
   requirements.txt   我们脚本的第三方依赖（只有 requests、websocket-client）
   start-tabbit.ps1   带调试端口启动 Tabbit；2026-09-30 起自动查找 exe（常见目录 / 运行中的进程 / 开始菜单快捷方式）
   survey_clicker.py  v0.2：CDP 阶梯点掉 Arena 问卷（--strategies click,key,react,escape,close / --delay / --once / --dry-run / --bring-to-front / --text / --title）
-  doctor.py          v0.1：一键诊断 + --fix（点掉问卷）+ --cancel（取消卡住的请求）+ --out doctor.json
+  doctor.py          v0.2：一键诊断（Windows 下用 [OK]/[X] 标记；--aab-repo 自动猜 C:\ai\arena-agent-bridge 或本仓库旁边） + --fix（点掉问卷）+ --cancel（取消卡住的请求）+ --out doctor.json
   orchestrator.py    同 ai-pingpong/orchestrator.py
   aab/patch_aab.py   给 ArenaAgentBridge 打补丁并重新打包（幂等；--dry-run/--no-thresholds/--no-build）
   start-v2.ps1       一键拉起：AAB 服务器 + tabbit_web_api + survey_clicker（-NoClicker 关）+ 编排器
@@ -159,6 +159,7 @@ config.json 里对应：`input=".tiptap[contenteditable='true'], .ProseMirror[co
 
 ## 7. 我们自己代码里的关键设计决定
 
+- **分工写进系统提示**（`A_ROLE`/`B_ROLE`，2026-09-30）：A（Arena Agent）= 有沙箱负责动手、每轮汇报做了什么/结果/卡点；B（Tabbit 对话模型）= 无执行环境、不得假装运行、负责审阅和给可直接照做的指令、核对达标后才同意 [DONE]。默认值在 orchestrator.py `DEFAULT_ROLE`。
 - **只发最新一条**（`*_SEND_ONLY_LAST=1`）：网页自己保存上下文；第一次调用把协作规则 + 任务 + 开场白合成一条。网页桥不重试（`*_RETRIES=1`，重试 = 把同一句再打进页面）。
 - **停机标记只认"某行行首"或"最后一行"**（`hit_stop_token`，orchestrator.py 与 bridge.py 都有）：避免模型复述规则时误触发。系统提示已要求把 `[DONE]/[NEED_HUMAN]` 单独写在最后一行，且不要用界面的提问组件。
 - **tabbit_web_api.py** 把 `Side` 的配置复制一份再用，避免单次请求的 `timeout` 污染基础配置（曾出过 bug）。

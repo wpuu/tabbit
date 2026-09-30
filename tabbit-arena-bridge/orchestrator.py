@@ -19,6 +19,7 @@ A、B 只要是 **OpenAI 兼容接口** 就行，可以是：
     X_NAME            显示名，默认 Agent-X
     X_SEND_ONLY_LAST  =1 表示"网页桥模式"：页面自己记着上下文，每次只发最新一条
                       （第一次会把协作规则+任务一并发过去），并在请求体带 timeout 字段
+  X_ROLE              这一侧的分工说明（默认：A=有沙箱负责动手；B=无执行环境负责审阅/给指令）。设为空字符串则不加
     X_TIMEOUT         单次 HTTP 等待秒数，默认 180；网页桥建议 3600（Agent 跑一轮可能很久）
     X_RETRIES         失败重试次数，默认 4；网页桥建议 1（重试=把同一句话再打进页面一次）
     X_WRAP            转发给 X 时套的模板，默认 "{text}"，可用 {n}（轮数）{peer}（对方名）
@@ -69,9 +70,17 @@ SYSTEM_TEMPLATE = """你是 {name}，正在和另一个 AI（{peer}）协作完�
 4. 不要用界面上的"提问/选项"组件向用户提问（没有人会去点），需要人类时用第 3 条的方式。
 5. 如果发现对话在原地打转（内容重复），主动收敛或按第 3 条停下。
 6. 这两个标记只在真的要停下时写在末尾；平时讨论中不要提到它们（程序会把它们当作停机信号）。
-
+{role}
 任务：{task}
 """
+
+# 每一侧的分工说明（环境变量 A_ROLE / B_ROLE 覆盖）。Arena Agent 有沙箱能真干活，Tabbit 的对话模型没有执行环境。
+DEFAULT_ROLE = {
+    "A": "你的分工：你有沙箱，可以写文件、跑命令、上网查资料，负责实际动手做。每轮说清楚：做了什么、结果/输出是什么、"
+         "卡在哪。需要对方做决定或审阅时，把选项摆出来。",
+    "B": "你的分工：你没有执行环境，不要假装运行过任何东西。你负责审阅对方的结果、指出问题和遗漏、给出下一步的具体指令"
+         "（要具体到可以直接照做）。对方汇报完成后，你要核对是否真的达到任务要求，达到了才同意 [DONE]。",
+}
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -91,6 +100,7 @@ def side_config(side: str) -> dict:
         "timeout": int(os.environ.get(f"{side}_TIMEOUT", 180)),
         "retries": max(1, int(os.environ.get(f"{side}_RETRIES", 4))),
         "wrap": os.environ.get(f"{side}_WRAP", "{text}").replace("\\n", "\n"),
+        "role": os.environ.get(f"{side}_ROLE", DEFAULT_ROLE.get(side, "")).replace("\\n", "\n"),
     }
     if not cfg["base_url"] or not cfg["model"]:
         sys.exit(f"缺少环境变量 {side}_BASE_URL / {side}_MODEL")
@@ -206,7 +216,8 @@ def main():
     cfg = {"A": side_config("A"), "B": side_config("B")}
     names = {"A": cfg["A"]["name"], "B": cfg["B"]["name"]}
     peer = {"A": "B", "B": "A"}
-    system = {s: SYSTEM_TEMPLATE.format(name=names[s], peer=names[peer[s]], task=args.task) for s in ("A", "B")}
+    system = {s: SYSTEM_TEMPLATE.format(name=names[s], peer=names[peer[s]], task=args.task,
+                                        role=("\n" + cfg[s]["role"] + "\n") if cfg[s]["role"] else "") for s in ("A", "B")}
     history = {s: [{"role": "system", "content": system[s]}] for s in ("A", "B")}   # 完整历史（日志/全量模式用）
     first_call = {"A": True, "B": True}
     pending_human = {"A": [], "B": []}

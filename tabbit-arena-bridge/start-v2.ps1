@@ -1,12 +1,12 @@
 ﻿# start-v2.ps1 — 一键拉起 v2 三件套：ArenaAgentBridge 服务器 + tabbit_web_api.py + orchestrator.py
 # 用法：
-#   .\start-v2.ps1 -AabRepo G:\arena-agent-bridge -Task "把 xxx 做出来：……"
-#   .\start-v2.ps1 -AabRepo G:\arena-agent-bridge -TaskFile task.txt -MaxRounds 40 -Cooldown 30
+#   .\start-v2.ps1 -AabRepo C:\ai\arena-agent-bridge -Task "把 xxx 做出来：……"
+#   .\start-v2.ps1 -AabRepo C:\ai\arena-agent-bridge -TaskFile task.txt -MaxRounds 40 -Cooldown 30
 #   .\start-v2.ps1 -NoServers -Task "……"      # 服务器已经在跑，只启动编排器
 #   .\start-v2.ps1 -NoClicker ...                 # 不启动 survey_clicker.py（问卷点击保险）
 # 首次运行若提示"禁止运行脚本"：先执行  Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 param(
-  [string]$AabRepo = "G:\arena-agent-bridge",
+  [string]$AabRepo = "",
   [string]$Task = "",
   [string]$TaskFile = "",
   [int]$MaxRounds = 40,
@@ -19,6 +19,12 @@ param(
 $ErrorActionPreference = "Continue"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not $AabRepo) {   # 自动猜 ArenaAgentBridge 的位置
+  foreach ($c in @("C:\ai\arena-agent-bridge", (Join-Path $here "..\..\arena-agent-bridge"), (Join-Path $here "..\arena-agent-bridge"), "G:\arena-agent-bridge")) {
+    if (Test-Path (Join-Path $c "server")) { $AabRepo = (Resolve-Path $c).Path; break }
+  }
+  if (-not $AabRepo) { $AabRepo = "C:\ai\arena-agent-bridge" }
+}
 
 if (-not $Task -and -not $TaskFile) { Write-Error "请用 -Task 或 -TaskFile 给出任务"; exit 1 }
 if ($TaskFile) { $Task = Get-Content -Raw -Encoding UTF8 $TaskFile }
