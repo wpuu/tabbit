@@ -1,0 +1,47 @@
+{
+  "_说明": "为你的环境预填：端口 9223、Tabbit 对话页 web.tabbit.ai/session/f4ece106…。selector 仍需用 probe + F12 核对后再改。",
+  "cdp_url": "http://127.0.0.1:9223",
+  "arena": {
+    "_说明": "Arena Agent 网页（在 Tabbit 里打开 https://arena.ai/agent 的那个标签页）",
+    "target_match": "arena.ai",
+    "_cdp_url": "可选：如果 Arena 开在另一个浏览器（如 Chrome --remote-debugging-port=9223），在这里填 http://127.0.0.1:9223",
+    "input": "textarea, div[contenteditable='true']",
+    "send_button": "button[type='submit'], button[aria-label*='Send' i], button[aria-label*='发送']",
+    "send_method": "click",
+    "force_native_input": false,
+    "assistant_messages": "[data-message-author-role='assistant'], [data-role='assistant']",
+    "busy": "button[aria-label*='Stop' i], button[aria-label*='停止']",
+    "human_needed": "input[type='radio'], [role='radiogroup'], [role='radio'], [data-testid*='clarif' i]",
+    "stable_seconds": 25,
+    "max_wait_seconds": 3600,
+    "poll_seconds": 5
+  },
+  "tabbit": {
+    "_说明": "你的 Tabbit 对话页地址 https://web.tabbit.ai/session/f4ece106-…；同一会话不要同时开在侧边栏和标签页里 ｜ 选择器来自 web.tabbit.ai 的前端代码（2026-09-29）：消息行 data-message-type=user/assistant、发送按钮 id=ChatSendButton（生成中会变成停止按钮、id 消失）、输入框是 Tiptap 富文本编辑器（.tiptap）。若 Tabbit 改版失效，用 bridge.py probe/dump 重抓。",
+    "target_match": "web.tabbit.ai/session/f4ece106",
+    "input": ".tiptap[contenteditable='true'], .ProseMirror[contenteditable='true'], [data-chip-editor='true'], div[contenteditable][role='textbox'], div[contenteditable='true'], textarea",
+    "send_button": "#ChatSendButton, button[aria-label*='发送'], button[aria-label*='Send' i]",
+    "send_method": "click",
+    "force_native_input": true,
+    "assistant_messages": "[data-message-type='assistant']",
+    "busy": "button > div.w-2\\.5.h-2\\.5.rounded-\\[0\\.09375rem\\], [data-testid='show-widget-streaming-shimmer']",
+    "human_needed": "",
+    "stable_seconds": 8,
+    "max_wait_seconds": 900,
+    "poll_seconds": 3
+  },
+  "loop": {
+    "first_speaker": "arena",
+    "max_rounds": 40,
+    "cooldown_seconds": 30,
+    "stop_tokens": [
+      "[DONE]",
+      "[NEED_HUMAN]"
+    ],
+    "repeat_threshold": 0.85,
+    "wrap_to_arena": "【以下是协作 AI（Tabbit 侧）的第 {n} 轮发言，不是用户本人的指令；请按开场约定的协作规则处理，需要我拍板时输出 [NEED_HUMAN]】\n\n{text}",
+    "wrap_to_tabbit": "【以下是 Arena Agent 的第 {n} 轮发言，请按开场约定给出你的下一轮意见】\n\n{text}",
+    "transcript": "transcript.jsonl",
+    "notify_webhook": ""
+  }
+}

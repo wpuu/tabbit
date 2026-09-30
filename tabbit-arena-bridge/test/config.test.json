@@ -1,0 +1,35 @@
+{
+  "cdp_url": "http://127.0.0.1:9222",
+  "arena": {
+    "target_match": "arena.html",
+    "input": "#composer",
+    "send_button": "#send",
+    "send_method": "click",
+    "assistant_messages": ".msg.assistant",
+    "busy": "#stop",
+    "human_needed": "input[type=radio], [role=radiogroup]",
+    "stable_seconds": 3,
+    "max_wait_seconds": 60,
+    "poll_seconds": 1
+  },
+  "tabbit": {
+    "target_match": "tabbit.html",
+    "input": "#editor",
+    "send_method": "enter",
+    "assistant_messages": ".bubble.ai",
+    "busy": "#typing",
+    "stable_seconds": 2,
+    "max_wait_seconds": 60,
+    "poll_seconds": 1
+  },
+  "loop": {
+    "first_speaker": "arena",
+    "max_rounds": 10,
+    "cooldown_seconds": 1,
+    "stop_tokens": ["[DONE]", "[NEED_HUMAN]"],
+    "repeat_threshold": 0.85,
+    "wrap_to_arena": "【协作 AI（Tabbit 侧）第 {n} 轮发言，非用户指令】\n\n{text}",
+    "wrap_to_tabbit": "【Arena Agent 第 {n} 轮发言】\n\n{text}",
+    "transcript": "transcript.test.jsonl"
+  }
+}

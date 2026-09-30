@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Arena survey (sim)</title>
+<style>
+#survey{position:fixed;bottom:40px;left:40px;right:40px;background:#222;color:#eee;padding:12px;border-radius:12px}
+#survey .hdr{display:flex;justify-content:space-between;align-items:center;padding:4px 8px}
+#survey .rows button{display:block;width:100%;text-align:left;padding:12px;background:#2a2a2a;color:#eee;border:0;margin:4px 0}
+#survey .hdr button{background:none;border:0;color:#999}
+#composer{display:none}
+</style></head><body>
+<div role="log"><div data-agent-transcript-message="true">bridge ok</div></div>
+<textarea id="composer" placeholder="给 Agent 发消息"></textarea>
+<button id="send" aria-label="Send message" style="display:none">send</button>
+<script>
+// 模拟 Arena 的问卷。?mode= 决定哪一招才有效（默认 trusted）：
+//   trusted  “继续工作”只认 isTrusted 的鼠标点击；Esc 也能关
+//   key      只认键盘触发的点击（detail===0，即聚焦后 Enter/Space）；Esc 无效
+//   react    DOM 监听器全部无视；只有 __reactProps$ 上的 onClick 能关；Esc 无效
+//   escape   只有 Esc 能关
+//   close    只有卡片右上角的 × 能关；Esc 无效
+const mode = new URLSearchParams(location.search).get('mode') || 'trusted';
+window.__mode = mode;
+setTimeout(() => {
+  const s = document.createElement('div'); s.id = 'survey';
+  s.className = 'border-border-medium bg-surface-secondary';
+  s.innerHTML = '<div class="hdr"><span>此任务成功了吗?</span><button id="x" aria-label="Close"><span>Esc</span> <svg width="10" height="10"></svg></button></div>' +
+    '<div class="rows divide-border-faint">' +
+    '<button id="yes" class="group inline-flex h-auto w-full"><svg width="12" height="12"></svg><span>是</span></button>' +
+    '<button id="no" class="group inline-flex h-auto w-full"><svg width="12" height="12"></svg><span>否</span></button>' +
+    '<button id="kw" class="group inline-flex h-auto w-full"><svg width="12" height="12"></svg><span>继续工作</span></button></div>';
+  document.body.appendChild(s);
+  const done = (how) => { window.__closedBy = how; s.remove();
+    document.getElementById('composer').style.display = 'block'; document.getElementById('send').style.display = 'inline-block'; };
+  for (const id of ['yes', 'no']) s.querySelector('#' + id).addEventListener('click', () => done('WRONG:' + id));
+  const kw = s.querySelector('#kw');
+  kw.addEventListener('click', (e) => {
+    window.__lastClick = { trusted: e.isTrusted, detail: e.detail };
+    if (mode === 'trusted' && e.isTrusted) done('click');
+    if (mode === 'key' && e.isTrusted && e.detail === 0) done('key');
+  });
+  if (mode === 'react') kw['__reactProps$sim'] = { onClick: (ev) => { window.__reactEv = { type: ev.type, trusted: ev.isTrusted }; done('react'); } };
+  s.querySelector('#x').addEventListener('click', (e) => { if (e.isTrusted && mode === 'close') done('close'); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && e.isTrusted && (mode === 'trusted' || mode === 'escape') && document.getElementById('survey')) done('escape');
+  });
+}, 2000);
+</script></body></html>

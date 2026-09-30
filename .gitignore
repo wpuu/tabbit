@@ -1,0 +1,37 @@
+# 运行产物（含对话内容 / 状态）
+transcript*.jsonl
+NEEDS_HUMAN.flag
+human_inbox.txt
+probe-*.json
+*-done.html
+*-working.html
+arena-survey.html
+dump.html
+
+# 密钥 / 本地配置
+.env
+*.local.json
+
+# 用户上传的抓取结果（含真实对话）
+uploads/
+
+# Python / 工具
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+node_modules/
+dist/
+
+# 上游项目请单独 clone，不要放进本仓库
+arena-agent-bridge/
+
+# 沙箱/工具残留
+.config/
+.sudo_as_admin_successful
+Unselected files/
+doctor.json
+*.bundle
+
+# 本地凭据（永远不提交）
+.secrets/

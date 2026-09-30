@@ -1,0 +1,57 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Tabbit Chat (real-like sim)</title>
+<style>
+body{font-family:sans-serif;margin:0;padding:16px 16px 120px}
+[data-message-type]{display:flex;gap:8px;padding:8px;margin:4px 0;border-radius:8px}
+[data-message-type="user"]{justify-content:flex-end;background:#eef}
+[data-message-type="assistant"]{background:#f6f6f6}
+.composer{position:fixed;left:16px;right:16px;bottom:16px;display:flex;align-items:flex-end;border:1px solid #ccc;border-radius:16px;padding:8px}
+.tiptap{flex:1;min-height:24px;outline:none}
+.tiptap p{margin:0}
+.tiptap p.is-empty::before{content:attr(data-placeholder);color:#999}
+button.send{margin-left:8px;width:32px;height:32px;border-radius:9999px;border:0;background:#333;color:#fff}
+button.send[data-send-blocked="true"]{background:#ddd}
+.w-2\.5{width:10px}.h-2\.5{height:10px}.rounded-\[0\.09375rem\]{border-radius:1.5px}
+button.send div{background:#fff;margin:auto}
+</style></head><body>
+<div data-testid="chat-message-list-scroll" id="list"></div>
+<div class="composer">
+  <div class="tiptap ProseMirror" contenteditable="true" translate="no" id="editor"><p class="is-empty" data-placeholder="问问 Tabbit"><br></p></div>
+  <button class="send" id="ChatSendButton" type="button" data-send-blocked="true" aria-label="发送"><svg width="16" height="16"></svg></button>
+</div>
+<script>
+// 模仿 web.tabbit.ai 的行为：
+//  - 输入框是 Tiptap（contenteditable div，内容在 <p> 里），空时 send 按钮 data-send-blocked="true"，点了没反应
+//  - 生成中：按钮失去 id=ChatSendButton，内部变成 10x10 的方块（停止），data-message-type=assistant 的行逐字增长
+//  - 生成完：按钮恢复 id，方块消失
+let n = 0, k = 0;
+const editor = document.getElementById('editor'), list = document.getElementById('list');
+let btn = document.getElementById('ChatSendButton');
+const text = () => editor.innerText.replace(/\n+$/, '');
+const refresh = () => { const empty = !text().trim(); editor.querySelector('p')?.classList.toggle('is-empty', empty);
+  if (btn.id) btn.setAttribute('data-send-blocked', empty ? 'true' : ''); if (!empty) btn.removeAttribute('data-send-blocked'); };
+editor.addEventListener('input', refresh);
+document.addEventListener('selectionchange', refresh);
+function addMsg(type, content) {
+  const row = document.createElement('div'); row.setAttribute('data-message-index', String(n));
+  row.setAttribute('data-message-id', 'm' + (++n)); row.setAttribute('data-message-type', type);
+  const inner = document.createElement('div'); inner.className = type === 'user' ? 'user-content' : 'markdown-body';
+  if (type === 'user') inner.setAttribute('data-user-message-readonly-content', 'true');
+  inner.innerText = content; row.appendChild(inner); list.appendChild(row); return inner;
+}
+function generate(prompt) {
+  k++;
+  const full = k >= 2 ? `这是第 ${k} 次回复。\n[DONE] 我确认任务完成。` : `Tabbit 回复 #${k}：收到 ${prompt.length} 个字符：“${prompt.slice(0, 60)}”。\n这是模拟的流式输出，用来测试稳定判定。`;
+  btn.removeAttribute('id'); btn.innerHTML = '<div class="w-2.5 h-2.5 shrink-0 rounded-[0.09375rem] bg-[var(--intensity-50)]"></div>';
+  window.__generating = true;
+  const inner = addMsg('assistant', ''); let i = 0;
+  const timer = setInterval(() => { i += 3; inner.innerText = full.slice(0, i);
+    if (i >= full.length) { clearInterval(timer); setTimeout(() => { btn.id = 'ChatSendButton'; btn.innerHTML = '<svg width="16" height="16"></svg>'; window.__generating = false; refresh(); }, 800); } }, 100);
+}
+btn.addEventListener('click', () => {
+  if (!btn.id) { window.__stopped = true; return; }            // 生成中点击 = 停止（这里不处理）
+  const t = text(); if (!t.trim() || btn.getAttribute('data-send-blocked') === 'true') return;
+  addMsg('user', t); editor.innerHTML = '<p class="is-empty" data-placeholder="问问 Tabbit"><br></p>'; refresh();
+  setTimeout(() => generate(t), 600);
+});
+editor.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); btn.click(); } });
+</script></body></html>

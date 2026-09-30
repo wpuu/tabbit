@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Arena Agent (sim)</title></head><body>
+<div id="chat"></div>
+<textarea id="composer" placeholder="Message"></textarea>
+<button id="send" aria-label="Send message">Send</button>
+<button id="stop" aria-label="Stop generating" style="display:none">Stop</button>
+<script>
+const $ = id => document.getElementById(id);
+const mode = new URLSearchParams(location.search).get('mode') || 'done';
+let k = 0;
+function add(role, text){ const d=document.createElement('div'); d.className='msg '+role; d.setAttribute('data-role', role); d.innerText=text; $("chat").appendChild(d); return d; }
+function reply(userText){
+  k++; $("stop").style.display='inline'; $("send").disabled=true;
+  setTimeout(()=>{ const d=add('assistant',''); const full = `Arena reply #${k}. I received: "${userText.slice(0,60)}"`; let i=0;
+    const iv=setInterval(()=>{ i+=8; d.innerText=full.slice(0,i); if(i>=full.length){ clearInterval(iv);
+      if(mode==='widget' && k===2){ d.innerHTML += '<div role="radiogroup"><label><input type="radio" name="q">Option A</label><label><input type="radio" name="q">Option B</label></div>'; }
+      $("stop").style.display='none'; $("send").disabled=false; } }, 150);
+  }, 2000);
+}
+$("send").onclick=()=>{ const t=$("composer").value; if(!t.trim()) return; add('user',t); $("composer").value=''; reply(t); };
+setTimeout(()=>reply('(kickoff by human)'), 3000);
+</script></body></html>

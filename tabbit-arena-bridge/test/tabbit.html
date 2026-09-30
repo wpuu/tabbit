@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Tabbit Chat (sim)</title></head><body>
+<div id="list"></div>
+<div id="typing" class="typing" style="display:none">正在输入…</div>
+<div id="editor" contenteditable="true" role="textbox" data-placeholder="问点什么"></div>
+<script>
+let k = 0;
+function add(cls, text){ const d=document.createElement('div'); d.className='bubble '+cls; d.innerText=text; list.appendChild(d); return d; }
+function reply(userText){
+  k++; typing.style.display='block';
+  setTimeout(()=>{ typing.style.display='none'; const txt = k>=2 ? '[DONE] 我确认任务完成。' : `Tabbit reply #${k}. Got ${userText.length} chars: "${userText.slice(0,50)}"`; add('ai', txt); }, 2500);
+}
+editor.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); const t=editor.innerText; if(!t.trim()) return; add('user',t); editor.innerHTML=''; reply(t); } });
+</script></body></html>
