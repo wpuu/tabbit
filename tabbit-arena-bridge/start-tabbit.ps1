@@ -1,12 +1,40 @@
 ﻿# start-tabbit.ps1 —— 带调试端口启动 Tabbit（先彻底退出旧实例；默认配置打不开端口时自动改用独立配置目录）
 # 用法：powershell -ExecutionPolicy Bypass -File .\start-tabbit.ps1
-#      可选参数：-Port 9223  -Exe "D:\Program Files\Tabbit\Application\Tabbit Browser.exe"  -Profile "D:\tabbit-bridge"
+#      可选参数：-Port 9223  -Exe "C:\Program Files\Tabbit\Application\Tabbit Browser.exe"  -Profile "C:\tabbit-bridge"
+#      不给 -Exe 时会自动在常见位置 / 开始菜单快捷方式里找 Tabbit Browser.exe
 param(
-  [string]$Exe     = "D:\Program Files\Tabbit\Application\Tabbit Browser.exe",
+  [string]$Exe     = "",
   [int]   $Port    = 9223,
-  [string]$Profile = "D:\tabbit-bridge"
+  [string]$Profile = (Join-Path $env:LOCALAPPDATA "tabbit-bridge-profile")
 )
 $ErrorActionPreference = "SilentlyContinue"
+
+function Find-Tabbit {
+  $cands = @(
+    "$env:ProgramFiles\Tabbit\Application\Tabbit Browser.exe",
+    "${env:ProgramFiles(x86)}\Tabbit\Application\Tabbit Browser.exe",
+    "$env:LOCALAPPDATA\Tabbit\Application\Tabbit Browser.exe",
+    "$env:LOCALAPPDATA\Tabbit Browser\Application\Tabbit Browser.exe",
+    "$env:LOCALAPPDATA\Programs\Tabbit\Tabbit Browser.exe",
+    "D:\Program Files\Tabbit\Application\Tabbit Browser.exe"
+  )
+  foreach ($c in $cands) { if ($c -and (Test-Path $c)) { return $c } }
+  # 正在运行的 Tabbit 进程
+  $p = Get-Process | Where-Object { $_.ProcessName -like "Tabbit*" -and $_.Path } | Select-Object -First 1
+  if ($p) { return $p.Path }
+  # 开始菜单 / 桌面快捷方式
+  $sh = New-Object -ComObject WScript.Shell
+  $dirs = @("$env:APPDATA\Microsoft\Windows\Start Menu\Programs", "$env:ProgramData\Microsoft\Windows\Start Menu\Programs", [Environment]::GetFolderPath("Desktop"))
+  foreach ($d in $dirs) {
+    foreach ($lnk in Get-ChildItem -Path $d -Recurse -Filter "*Tabbit*.lnk" -ErrorAction SilentlyContinue) {
+      $t = $sh.CreateShortcut($lnk.FullName).TargetPath
+      if ($t -and (Test-Path $t) -and $t -like "*.exe") { return $t }
+    }
+  }
+  return $null
+}
+if (-not $Exe) { $Exe = Find-Tabbit }
+if ($Exe) { Write-Host "Tabbit：$Exe" }
 
 function Test-Port($p) {
   try { return ((Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$p/json/version" -TimeoutSec 2).StatusCode -eq 200) } catch { return $false }

@@ -98,7 +98,12 @@ def main():
     ap.add_argument("--text", default="继续工作")
     ap.add_argument("--title", default="此任务成功了吗")
     args = ap.parse_args()
-    cdp = bridge.resolve_cdp(args)
+    cfg = {}
+    try:  # 同目录 config.json 的 cdp_url 作为默认（你的 Tabbit 是 9223）
+        cfg = json.loads((Path(__file__).resolve().parent / "config.json").read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    cdp = bridge.resolve_cdp(args, cfg)
     raw = {"at": time.strftime("%Y-%m-%d %H:%M:%S")}
     advice = []          # (级别, 文字)
     print(f"doctor.py v{VERSION} · server={args.server} · cdp={cdp} · aab={args.aab_repo}")

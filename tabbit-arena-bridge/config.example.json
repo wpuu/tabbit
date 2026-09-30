@@ -1,5 +1,5 @@
 {
-  "_说明": "复制为 config.json 后修改。所有 selector 都要用 `python bridge.py probe` + F12 在你自己的 Tabbit 里核对；网站一改版就要重新核对。",
+  "_说明": "端口 9223（Tabbit 的调试端口）。arena/tabbit 两节的选择器：arena 节只给 v1 纯 CDP 方案用（v2 用 ArenaAgentBridge 扩展），tabbit 节给 tabbit_web_api.py 用。",
   "cdp_url": "http://127.0.0.1:9222",
   "arena": {
     "_说明": "Arena Agent 网页（在 Tabbit 里打开 https://arena.ai/agent 的那个标签页）",
@@ -17,8 +17,8 @@
     "poll_seconds": 5
   },
   "tabbit": {
-    "_说明": "Tabbit 对话（侧边栏或新标签页对话）。先 `python bridge.py list` 找到它的 url/title，填到 target_match ｜ 选择器来自 web.tabbit.ai 的前端代码（2026-09-29）：消息行 data-message-type=user/assistant、发送按钮 id=ChatSendButton（生成中会变成停止按钮、id 消失）、输入框是 Tiptap 富文本编辑器（.tiptap）。若 Tabbit 改版失效，用 bridge.py probe/dump 重抓。",
-    "target_match": "tabbit",
+    "_说明": "Tabbit 对话页（在 Tabbit 里单独开一个窗口打开 https://web.tabbit.ai/session/<会话id>，别用侧边栏）。target_match 默认匹配任意会话页；同时开了多个会话页时改成具体的，如 web.tabbit.ai/session/f4ece106 ｜ 选择器来自 web.tabbit.ai 的前端代码（2026-09-29）：消息行 data-message-type=user/assistant、发送按钮 id=ChatSendButton（生成中会变成停止按钮、id 消失）、输入框是 Tiptap 富文本编辑器（.tiptap）。若 Tabbit 改版失效，用 bridge.py probe/dump 重抓。",
+    "target_match": "web.tabbit.ai/session",
     "input": ".tiptap[contenteditable='true'], .ProseMirror[contenteditable='true'], [data-chip-editor='true'], div[contenteditable][role='textbox'], div[contenteditable='true'], textarea",
     "send_button": "#ChatSendButton, button[aria-label*='发送'], button[aria-label*='Send' i]",
     "send_method": "click",

@@ -10,7 +10,8 @@
 | 你是谁 | 读这个 |
 | --- | --- |
 | 接手的 AI / 协作者 | [`HANDOFF.md`](HANDOFF.md) —— 目标、硬约束、现状、唯一阻塞点、下一步 |
-| 要跑起来 | [`tabbit-arena-bridge/README-v2.md`](tabbit-arena-bridge/README-v2.md) —— 安装、打补丁、装扩展、三窗口运行、FAQ |
+| **新电脑上从零装起** | [`新电脑从零开始.md`](新电脑从零开始.md) —— 装软件 → 拿代码 → 服务器 → 扩展 → 两项验证 → 正式跑，每步都有"成功长什么样" |
+| 要跑起来 / 查细节 | [`tabbit-arena-bridge/README-v2.md`](tabbit-arena-bridge/README-v2.md) —— 安装、打补丁、装扩展、三窗口运行、FAQ |
 | 想知道为什么这么设计 | [`Arena-Agent与Tabbit模型自动互通可行性分析.md`](Arena-Agent与Tabbit模型自动互通可行性分析.md) |
 
 ## 目录

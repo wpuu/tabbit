@@ -41,17 +41,16 @@ Tabbit（--remote-debugging-port=9223）
 | 项 | 值 |
 | --- | --- |
 | 系统 / 终端 | Windows，PowerShell。控制台是 GBK：Python 脚本已 `reconfigure(errors="replace")`，输出文件一律用 `--out`，别用 `\| clip` |
-| 本仓库位置 | `G:\tabbit-arena-bridge`（用户把整个文件夹下载覆盖来更新） |
-| ArenaAgentBridge 位置 | 文档按 `G:\arena-agent-bridge` 写（venv 在 `.venv`），用户可能放在别处 |
-| Tabbit | `D:\Program Files\Tabbit\Application\Tabbit Browser.exe`，用 `--remote-debugging-port=9223` 启动即可（**不需要** `--user-data-dir`，登录态保留；Tabbit 也有 `tabbit://inspect/#remote-debugging` 开关和 `%LOCALAPPDATA%\Tabbit Browser\User Data\DevToolsActivePort`） |
-| Tabbit 对话页 | `https://web.tabbit.ai/session/f4ece106-…`（标题曾为"收到"；完整地址只在用户本机的 Tabbit 里）；另有一个 `7a3601b9-…` 会话不用。CDP 里都是普通 `page` 目标 |
+| 设备 | 2026-09-30 起用户换到**新笔记本**从零装（旧台式机上 `C:\ai\tabbit\tabbit-arena-bridge` / `C:\ai\arena-agent-bridge` 的环境作废）。新机按 `新电脑从零开始.md`：代码在 `C:\ai\tabbit`（本仓库 clone）和 `C:\ai\arena-agent-bridge`（上游 clone，venv 在 `.venv`） |
+| Tabbit | 用 `--remote-debugging-port=9223` 启动即可（**不需要** `--user-data-dir`，登录态保留）。`tabbit-arena-bridge/start-tabbit.ps1` 会自动找 exe（旧机在 `D:\Program Files\Tabbit\Application\Tabbit Browser.exe`，新机未知）。Tabbit 也有 `tabbit://inspect/#remote-debugging` 开关和 `%LOCALAPPDATA%\Tabbit Browser\User Data\DevToolsActivePort` |
+| Tabbit 对话页 | 旧机用的是 `https://web.tabbit.ai/session/f4ece106-…`；新机会是别的会话，所以 `config.json` 的 `target_match` 已改成通用的 `web.tabbit.ai/session`（同时开多个会话页时再写具体）。CDP 里都是普通 `page` 目标 |
 | Arena 会话页 | 最近用的是 `https://arena.ai/agent/01a0eb9e-…`（更早的 `01a0eb33-…`）。是用户的另一个 Arena 账号，界面是**中文** |
-| 干扰项 | 用户在 Tabbit 的篡改猴里有一个 arena.ai 用户脚本（注入 `#amd-*` 按钮），测试时必须禁用 |
+| 干扰项 | 旧机 Tabbit 的篡改猴里有一个 arena.ai 用户脚本（注入 `#amd-*` 按钮）；新机若同步了扩展也要禁用（doctor.py 会报 amd 元素数） |
 | 端口约定 | CDP 9223；ArenaAgentBridge 8000；tabbit_web_api 8124；(ai-pingpong 的 mock 服务器 8123) |
 
 ---
 
-## 3. 各部件状态（截至 2026-09-29）
+## 3. 各部件状态（截至 2026-09-30；注意：以下"用户已装好"指旧台式机，新笔记本上一切从零，按 `新电脑从零开始.md` 重做）
 
 | 部件 | 状态 | 证据 |
 | --- | --- | --- |
@@ -83,13 +82,13 @@ Tabbit（--remote-debugging-port=9223）
 2. `content.js`（`aab/patch_aab.py` 自动打）：
    - pre-survey：每次发送前 `hasSurvey()` 为真就先 `acceptKeepWorking({waitMs:0})`；
    - robust-click：合成点击后 2.5s 没消失 → `button.focus(); button.click()` → 再没消失 → 键盘 Enter → 再没消失 → 对 document 发 Escape。
-   用户反馈"还是不行"，但**不确定用户是否重跑了补丁并重新加载扩展**（验证方法：`Select-String -Path G:\arena-agent-bridge\dist\chrome\content.js -Pattern "pre-survey"` 有输出；Arena 标签页 F12 控制台过滤 `ArenaAgentBridge` 应能看到 `survey left over from the previous turn` 之类日志）。
+   用户反馈"还是不行"，但**不确定用户是否重跑了补丁并重新加载扩展**（验证方法：`Select-String -Path C:\ai\arena-agent-bridge\dist\chrome\content.js -Pattern "pre-survey"` 有输出；Arena 标签页 F12 控制台过滤 `ArenaAgentBridge` 应能看到 `survey left over from the previous turn` 之类日志）。
 3. `survey_clicker.py`：绕开扩展，用 CDP 发真实输入。v0.2 是阶梯：`Input.dispatchMouseEvent` 点按钮中心/文字中心 → `el.focus()` + 真实 Enter/Space → 调元素上 `__reactProps$*` 的 onClick/onPointerDown → 真实 Esc → 点卡片 ×（`aria-label` 含 close / 文字 Esc）。每一步都打印。**等用户结果。**
 4. `doctor.py`：一次跑完"服务器 / 扩展连接 / 卡住的请求 / 最近请求失败码 / 页面状态 / dist 补丁"六项检查并给出下一步；`--fix` 立即点掉问卷，`--cancel` 取消卡住的请求（`POST /admin/api/browser/cancel`）。**用户尚未运行。**
    已从上游源码确认：管理面板 Playground 的 Send 只在它自己那条请求未返回（`chat.running`）时置灰；服务器一次只放一条请求进页面，扩展在"输入框被清空"时就当作已发出，然后等 `NO_OUTPUT_MS`（我们改成 5 分钟）才报 `no_output`——所以问卷挡住时，症状就是"Send 灰 5 分钟"。
 
 **下一步（按优先级）**
-1. 让用户先跑 `python doctor.py --aab-repo G:\arena-agent-bridge --out doctor.json`（必要时加 `--cancel --fix`），把输出贴回来——它会直接说明 Send 灰的原因、补丁是否真的加载、问卷是否在。
+1. 让用户先跑 `python doctor.py --aab-repo C:\ai\arena-agent-bridge --out doctor.json`（必要时加 `--cancel --fix`），把输出贴回来——它会直接说明 Send 灰的原因、补丁是否真的加载、问卷是否在。
 2. 让用户开着 `python survey_clicker.py --cdp http://127.0.0.1:9223 --target arena.ai/agent`，Playground 连发两句。看它打印的 `层级 / 卡片 / HTML` 行和"第 N 步后消失"——N 告诉我们 Arena 到底认哪一招（1–3 鼠标、4–5 键盘、6 React、7 Esc、8 ×）。
 3. 若八招全失败（日志"所有招式都试过问卷仍在"）：看 `covered`（被别的层挡住）、`视口内`；试 `--bring-to-front`；观察用户手点时 Network 里发了什么请求（能否用 fetch 复现）；最后手段是在扩展里把问卷元素直接 `remove()` 并把输入框 `display` 改回来（未验证 Arena 是否允许在问卷未答时发送）。
 3. 若问卷来得晚：clicker 常驻就能覆盖；也可把 pre-survey 逻辑并进 `tabbit_web_api.py`/编排器（发 Arena 前先让 clicker `--once`）。
@@ -111,6 +110,8 @@ tabbit-arena-bridge/
   bridge.py          v0.7：CDP 基础库 + list/probe/dump/run 子命令。tabbit_web_api.py / survey_clicker.py / doctor.py 都 import 它
                      0.7：选择器按逗号顺序取第一段有可见命中的（pick）；force_native_input 改为"清空 + CDP 打字"（原来会插两遍）；data-send-blocked 视为禁用
   tabbit_web_api.py  v0.1：Tabbit 对话页 → OpenAI 兼容接口（:8124）。默认只发最后一条 user 消息；请求体 timeout 覆盖等待；并发 429；超时 504；human_needed 组件出现时在回复末尾追加 [NEED_HUMAN]
+  requirements.txt   我们脚本的第三方依赖（只有 requests、websocket-client）
+  start-tabbit.ps1   带调试端口启动 Tabbit；2026-09-30 起自动查找 exe（常见目录 / 运行中的进程 / 开始菜单快捷方式）
   survey_clicker.py  v0.2：CDP 阶梯点掉 Arena 问卷（--strategies click,key,react,escape,close / --delay / --once / --dry-run / --bring-to-front / --text / --title）
   doctor.py          v0.1：一键诊断 + --fix（点掉问卷）+ --cancel（取消卡住的请求）+ --out doctor.json
   orchestrator.py    同 ai-pingpong/orchestrator.py
@@ -166,18 +167,18 @@ config.json 里对应：`input=".tiptap[contenteditable='true'], .ProseMirror[co
 
 ---
 
-## 8. 常用命令速查（用户机器）
+## 8. 常用命令速查（用户机器；新笔记本路径 C:\ai\…，旧机是 G:\…）
 
 ```powershell
 # 版本核对
-cd G:\tabbit-arena-bridge; python bridge.py --version; python tabbit_web_api.py --version; python survey_clicker.py --version
+cd C:\ai\tabbit\tabbit-arena-bridge; python bridge.py --version; python tabbit_web_api.py --version; python survey_clicker.py --version
 # AAB：打补丁+打包 → 扩展页“重新加载” → 刷新 Arena 标签页 → 重启服务器
-cd G:\arena-agent-bridge; .\.venv\Scripts\Activate.ps1; python G:\tabbit-arena-bridge\aab\patch_aab.py --repo G:\arena-agent-bridge; python -m server
+cd C:\ai\arena-agent-bridge; .\.venv\Scripts\Activate.ps1; python C:\ai\tabbit\tabbit-arena-bridge\aab\patch_aab.py --repo C:\ai\arena-agent-bridge; python -m server
 # 冒烟（PowerShell）
 $body = @{ model="arena-agent"; messages=@(@{ role="user"; content="请只回复：bridge ok" }); timeout=600 } | ConvertTo-Json -Depth 5
 Invoke-RestMethod -Uri http://127.0.0.1:8000/v1/chat/completions -Method Post -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) | ConvertTo-Json -Depth 5
 # 一键诊断（Send 为什么灰 / 为什么发不出去）；--cancel 取消卡住的请求，--fix 立即点掉问卷
-python doctor.py --aab-repo G:\arena-agent-bridge --out doctor.json
+python doctor.py --aab-repo C:\ai\arena-agent-bridge --out doctor.json
 # 问卷点击保险（常驻）
 python survey_clicker.py --cdp http://127.0.0.1:9223 --target arena.ai/agent
 # 抓 Tabbit 结构（先让它回复 PROBE-2468）
@@ -185,7 +186,7 @@ python bridge.py probe --cdp http://127.0.0.1:9223 --target web.tabbit.ai/sessio
 python bridge.py dump  --cdp http://127.0.0.1:9223 --target web.tabbit.ai/session/f4ece106 --out tabbit-1-done.html
 python bridge.py dump  --cdp http://127.0.0.1:9223 --target web.tabbit.ai/session/f4ece106 --out tabbit-2-working.html   # 正在输出时
 # 全部拉起
-.\start-v2.ps1 -AabRepo G:\arena-agent-bridge -Task "……" -MaxRounds 40 -Cooldown 30
+.\start-v2.ps1 -AabRepo C:\ai\arena-agent-bridge -Task "……" -MaxRounds 40 -Cooldown 30
 ```
 
 沙箱侧验证命令（若接手的是同一类带工作区的 AI）：clicker 五种模式 = 起 headless Chromium 打开 `test/survey.html?mode=<m>`，跑 `survey_clicker.py --cdp http://127.0.0.1:9222 --target survey --delay 1 --once`，再 eval `window.__closedBy` 应等于 mode；doctor = `AAB_MOCK_BROWSER=1 AAB_MOCK_DELAY=40 python -m server` 起 mock 服务器，发一条请求后跑 `doctor.py --cdp http://127.0.0.1:9222 --target survey.html --aab-repo <clone> --fix --cancel`。Chromium 需每轮重装 `pip install playwright websocket-client requests; python3 -m playwright install chromium; sudo -n python3 -m playwright install-deps chromium`，二进制在 `~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome`；`/tmp` 与已装 pip 包不跨轮保留；`pkill -f` 会连自己一起杀，用 `pgrep` + `kill`；模拟联调命令见 README-v2 末尾说明。
@@ -209,7 +210,7 @@ python bridge.py dump  --cdp http://127.0.0.1:9223 --target web.tabbit.ai/sessio
 理由：用户靠"重新下载整个文件夹覆盖"更新，已经两次因本地文件过期踩坑；有仓库后 `git pull` 即可，改动有历史，另一个 AI（包括 Arena Agent 本身，它支持直接开 PR）也能直接在仓库上干活。
 
 - **私有为宜**：整个项目是在自动化 arena.ai（违反其 ToS），且文档里有用户环境细节。提交前已把邮箱、完整会话 UUID 从文档和 `config.json` 里去掉，只留 8 位前缀（`--target` 子串匹配够用）。
-- **不要把 ArenaAgentBridge 整个复制进来**：保持"上游 clone + 我们的 `patch_aab.py`"的方式；只在文档里记下上游 commit（`git -C G:\arena-agent-bridge rev-parse --short HEAD`），方便复现。
+- **不要把 ArenaAgentBridge 整个复制进来**：保持"上游 clone + 我们的 `patch_aab.py`"的方式；只在文档里记下上游 commit（`git -C C:\ai\arena-agent-bridge rev-parse --short HEAD`），方便复现。
 - **不要提交**：`transcript*.jsonl`、`NEEDS_HUMAN.flag`、`human_inbox.txt`、probe/dump 输出（含对话内容）、`.env`、`uploads/`。根目录已放好 `.gitignore`。
 - 首次推送（在工作区根目录，即包含本文的那一层）：`.\push-to-github.ps1`（等价于 `git init -b main; git add .; git commit; git remote add origin https://github.com/wpuu/tabbit.git; git push -u origin main`；Git for Windows 会弹浏览器登录）。
 - 以后更新：`git pull`（或再跑一次 `push-to-github.ps1` 提交本地改动），然后照常 `python bridge.py --version` 核对。

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # sync-push.sh — 把工作区（本文件所在目录）同步到 GitHub 仓库并推送。给沙箱里的 AI 用；用户本机请用 push-to-github.ps1。
 #
-#   ./sync-push.sh "提交说明"        工作区 → 仓库（工作区版本优先），提交并推送
-#   ./sync-push.sh --pull            仓库 → 工作区（把远端最新文件拷回来；用户在本机改了文件并推送后先跑这个）
-#   ./sync-push.sh --diff            只看两边差异，不动任何东西
+#   bash sync-push.sh "提交说明"     工作区 → 仓库（工作区版本优先），提交并推送
+#   bash sync-push.sh --pull         仓库 → 工作区（把远端最新文件拷回来；用户在本机改了文件并推送后先跑这个）
+#   bash sync-push.sh --diff         只看两边差异，不动任何东西
 #
 # 凭据：环境变量 GITHUB_TOKEN，或 .secrets/github_token.txt（已在 .gitignore 里，永远不会被提交）。
-# 每次都重新 clone 到 /tmp（沙箱的 /tmp 不跨轮保留，所以工作区里不放 .git）。
+# 每次都重新 clone 到 /tmp（沙箱的 /tmp 不跨轮保留，所以工作区里不放 .git）。只依赖 git + python3（不用 rsync）。
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_URL="${REPO_URL:-https://github.com/wpuu/tabbit.git}"
@@ -33,23 +33,47 @@ fi
 git -C "$WORK/repo" config user.name  "wpuu"
 git -C "$WORK/repo" config user.email "wpuu@users.noreply.github.com"
 
-# 同步时永远排除：.git、凭据；其余交给仓库里的 .gitignore
-RSYNC_EX=(--exclude .git --exclude .secrets --exclude uploads --exclude 'Unselected files' --exclude __pycache__ --exclude .config --exclude .sudo_as_admin_successful)
+# 同步器（纯 python）：src → dst，跳过排除项；push 模式还会删掉 dst 里 src 没有的文件（.git 除外）
+sync_py() {  # $1=src $2=dst $3=mode(push|pull|diff)
+python3 - "$1" "$2" "$3" <<'PY'
+import filecmp, os, shutil, sys
+src, dst, mode = sys.argv[1:4]
+EXCLUDE_DIRS = {".git", ".secrets", "uploads", "Unselected files", "__pycache__", ".config", "node_modules", ".venv", ".pytest_cache"}
+EXCLUDE_FILES = {".sudo_as_admin_successful"}
+def walk(root):
+    out = {}
+    for d, dirs, files in os.walk(root):
+        dirs[:] = [x for x in dirs if x not in EXCLUDE_DIRS]
+        for f in files:
+            if f in EXCLUDE_FILES: continue
+            full = os.path.join(d, f); out[os.path.relpath(full, root)] = full
+    return out
+s, t = walk(src), walk(dst)
+changed = [r for r in sorted(s) if r not in t or not filecmp.cmp(s[r], t[r], shallow=False)]
+removed = [r for r in sorted(t) if r not in s]
+if mode == "diff":
+    for r in changed: print(("  新增  " if r not in t else "  修改  ") + r)
+    if mode == "diff":
+        for r in removed: print("  仅远端 " + r)
+    if not changed and not removed: print("  （两边一致）")
+    sys.exit(0)
+for r in changed:
+    os.makedirs(os.path.dirname(os.path.join(dst, r)) or dst, exist_ok=True)
+    shutil.copy2(s[r], os.path.join(dst, r)); print(("  新增  " if r not in t else "  更新  ") + r)
+if mode == "push":
+    for r in removed:
+        os.remove(t[r]); print("  删除  " + r)
+if not changed and not (mode == "push" and removed): print("  （没有文件变化）")
+PY
+}
 
-if [ "$mode" = "diff" ]; then
-  rsync -rcn --delete --itemize-changes "${RSYNC_EX[@]}" "$ROOT/" "$WORK/repo/" | grep -v '^\.d' || echo "（两边一致）"
-  exit 0
-fi
-
-if [ "$mode" = "pull" ]; then
-  echo "· 仓库 → 工作区（只覆盖仓库里有的文件，不删工作区其它文件）"
-  rsync -rc --itemize-changes --exclude .git "$WORK/repo/" "$ROOT/" | grep -v '^\.d' || true
-  echo "完成"
-  exit 0
-fi
+case "$mode" in
+  diff) sync_py "$ROOT" "$WORK/repo" diff; exit 0 ;;
+  pull) echo "· 仓库 → 工作区（只覆盖仓库里有的文件）"; sync_py "$WORK/repo" "$ROOT" pull; echo "完成"; exit 0 ;;
+esac
 
 echo "· 工作区 → 仓库"
-rsync -rc --delete "${RSYNC_EX[@]}" "$ROOT/" "$WORK/repo/"
+sync_py "$ROOT" "$WORK/repo" push
 cd "$WORK/repo"
 git add -A
 if git diff --cached --quiet; then

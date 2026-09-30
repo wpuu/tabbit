@@ -263,7 +263,12 @@ def main():
     args.strategies = [s.strip() for s in args.strategies.split(",") if s.strip()]
     if args.no_escape:
         args.strategies = [s for s in args.strategies if s != "escape"]
-    cdp = bridge.resolve_cdp(args)
+    cfg = {}
+    try:  # 同目录 config.json 的 cdp_url 作为默认（你的 Tabbit 是 9223）
+        cfg = json.loads((Path(__file__).resolve().parent / "config.json").read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    cdp = bridge.resolve_cdp(args, cfg)
     print(f"survey_clicker.py v{VERSION} · cdp={cdp} · target~'{args.target}' · text='{args.text}' · delay={args.delay}s "
           f"· 顺序={','.join(args.strategies)}", flush=True)
 
