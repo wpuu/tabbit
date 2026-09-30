@@ -20,7 +20,8 @@ tabbit-arena-bridge/   主体：bridge.py（CDP 库）、tabbit_web_api.py、sur
                        orchestrator.py、aab/patch_aab.py（给 ArenaAgentBridge 打补丁）、start-v2.ps1、test/ 模拟页
 ai-pingpong/           编排器的独立副本 + mock 服务器（与 tabbit-arena-bridge/orchestrator.py 保持一致）
 HANDOFF.md             交接文档
-push-to-github.ps1     一键提交并推送到本仓库
+push-to-github.ps1     用户本机：一键提交并推送到本仓库
+sync-push.sh           AI 沙箱：工作区 → 仓库 同步并推送（--pull 反向，--diff 看差异）
 ```
 
 上游依赖（单独 clone，不放进本仓库）：[startify2647/ArenaAgentBridge](https://github.com/startify2647/ArenaAgentBridge)，

@@ -213,7 +213,9 @@ python bridge.py dump  --cdp http://127.0.0.1:9223 --target web.tabbit.ai/sessio
 - **不要提交**：`transcript*.jsonl`、`NEEDS_HUMAN.flag`、`human_inbox.txt`、probe/dump 输出（含对话内容）、`.env`、`uploads/`。根目录已放好 `.gitignore`。
 - 首次推送（在工作区根目录，即包含本文的那一层）：`.\push-to-github.ps1`（等价于 `git init -b main; git add .; git commit; git remote add origin https://github.com/wpuu/tabbit.git; git push -u origin main`；Git for Windows 会弹浏览器登录）。
 - 以后更新：`git pull`（或再跑一次 `push-to-github.ps1` 提交本地改动），然后照常 `python bridge.py --version` 核对。
-- AI 侧若拿不到推送凭据，就把改动写进工作区，由用户跑 `push-to-github.ps1`。
+- **AI 侧推送**：工作区根目录 `./sync-push.sh "提交说明"`（每次重新 clone 到 /tmp，把工作区同步过去后提交推送；token 读 `.secrets/github_token.txt`，该目录在 .gitignore 里，永远不提交；脚本还会拒绝暂存内容里出现密钥样式的字符串）。用户在本机改了文件并推送后，AI 先跑 `./sync-push.sh --pull` 把远端拷回工作区，再改、再推。`--diff` 只看差异。
+- 首次推送已完成：2026-09-30，commit `5b2fc23`，27 个文件。用户本机第一次用 `git clone https://github.com/wpuu/tabbit.git`，以后 `git pull`。
+- 用户说 token 在本次对话结束后作废；下次需要新 token 时写入 `.secrets/github_token.txt` 即可。
 
 ---
 
